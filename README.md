@@ -29,36 +29,37 @@ scrolling.setScrolling(element);
 
 ## Параметры конструктора
 
-`const scrolling = new Scrolling(params = {})` - создание прокрутки
+`const scrolling = new Scrolling(params = {})` - создание прокрутки  
 
 ### params
-`mode: SCROLL_MODE_HORIZONTAL | SCROLL_MODE_VERTICAL` - направление прокрутки (`SCROLL_MODE_HORIZONTAL`, `SCROLL_MODE_VERTICAL`)
-`step_x: 1` - шаг прокрутки по горизонтали
-`step_y: 1` - шаг прокрутки по вертикали
-`k_braking: 0.9` - коэффициент торможения (0..1)
-`finishing_speed: 8` - скорость доводки до заданного шага
-`container: {}` - параметры контейнера
-`scroll_frame_func: null` - callback(info) функция, вызываемая на каждый кадр прокрутки
-`scroll_complete_func: null` - callback(info) функция, вызываемая при завершении прокрутки
-`gesture_func: null` - callback(event) функция обработки свайпов (за пределами контейнера для прокрутки)
+`mode: SCROLL_MODE_HORIZONTAL | SCROLL_MODE_VERTICAL` - направление прокрутки (`SCROLL_MODE_HORIZONTAL`, `SCROLL_MODE_VERTICAL`)  
+`step_x: 1` - шаг прокрутки по горизонтали  
+`step_y: 1` - шаг прокрутки по вертикали  
+`k_braking: 0.9` - коэффициент торможения (0..1)  
+`finishing_speed: 8` - скорость доводки до заданного шага  
+`container: {}` - параметры контейнера  
+`scroll_frame_func: null` - callback(info) функция, вызываемая на каждый кадр прокрутки  
+`scroll_complete_func: null` - callback(info) функция, вызываемая при завершении прокрутки  
+`gesture_func: null` - callback(event) функция обработки свайпов (за пределами контейнера для прокрутки)  
 
 ### info
-`x` - смещение контейнера по горизонтали
-`y` - смещение контейнера по вертикали
+`x` - смещение контейнера по горизонтали  
+`y` - смещение контейнера по вертикали  
 
 ### container
-`x: 0` - координата x контейнера
-`y: 0` - координата y контейнера
-`w: width` - ширина контейнера
-`h: height` - высота контейнера
-`pos_x: 0` - базовое смещение контейнера по горизонтали
-`pos_y: 0` - базовое смещение контейнера по вертикали
+`x: 0` - координата x контейнера  
+`y: 0` - координата y контейнера  
+`w: width` - ширина контейнера  
+`h: height` - высота контейнера  
+`pos_x: 0` - базовое смещение контейнера по горизонтали  
+`pos_y: 0` - базовое смещение контейнера по вертикали  
 
-`scrolling.container` - прокручиваемый контейнер, на нем необходимо разместить все элементы
-`scrolling.setScrolling(element)` - сделать элемент перетаскиваемым (применить для каждого элемента на контейнере)
-`scrolling.getScrollStep(): result` - получить текущую позицию прокрутки (в шагах): `result.sx`, `result.sy`
-`scrolling.stepTo(option)` - прокрутка на заданное число шагов (`option.kx < 0` - влево; `option.kx > 0` - вправо; `option.ky < 0` - вверх; `option.ky > 0` - вниз)
-`scrolling.scrollTo(option)` - прокрутка на заданную позицию (`option.sx`, `option.sy`), `option.anim` - анимация (`true`, `false`)
+### Свойства и методы
+`scrolling.container` - прокручиваемый контейнер, на нем необходимо разместить все элементы  
+`scrolling.setScrolling(element)` - сделать элемент перетаскиваемым (применить для каждого элемента на контейнере)  
+`scrolling.getScrollStep(): result` - получить текущую позицию прокрутки (в шагах): `result.sx`, `result.sy`  
+`scrolling.stepTo(option)` - прокрутка на заданное число шагов (`option.kx < 0` - влево; `option.kx > 0` - вправо; `option.ky < 0` - вверх; `option.ky > 0` - вниз)  
+`scrolling.scrollTo(option)` - прокрутка на заданную позицию (`option.sx`, `option.sy`), `option.anim` - анимация (`true`, `false`)  
 
 ## Примеры
 
