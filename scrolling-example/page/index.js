@@ -24,7 +24,7 @@ Page({
 
     // Добавляем на контейнер необходимые элементы
     let x = 0;
-    for (let i = 1; i <= 20; i++) {
+    for (let i = 0; i < 20; i++) {
       // scrolling.container - контейнер, на который надо размещать элементы
       const button = scrolling.container.createWidget(widget.BUTTON, {
         x: x,
@@ -35,21 +35,24 @@ Page({
         normal_color: 0xfc6950,
         press_color: 0xfeb4a8,
         text: i,
-        click_func: () => console.log(`CLICK: ${i}`),
+        click_func: () => {console.log(`CLICK: ${i}`)},
       });
       scrolling.setScrolling(button); // Каждый элемент также должен быть перетаскиваемым
       x += px(60);
     }
+
+    // Прокрутка к заданной позиции
+    scrolling.scrollTo({sx: 10, anim: true});
 
     // Скроллинг клавишами (не обязательно)
     onKey({
       callback: (key, keyEvent) => {
         if (keyEvent === KEY_EVENT_CLICK) {
           if (key === KEY_UP) {
-            scrolling.step(1, 0); // Прокрутка влево на 1 шаг
+            scrolling.stepTo({kx: -1}); // Прокрутка влево на 1 шаг
           }
           if (key === KEY_DOWN) {
-            scrolling.step(-1, 0); // Прокрутка вправо на 1 шаг
+            scrolling.stepTo({kx: 1}); // Прокрутка вправо на 1 шаг
           }
         }
         return false;
@@ -60,7 +63,7 @@ Page({
     onDigitalCrown({
       callback: (key, degree) => {
         if (key === KEY_HOME) {
-          scrolling.step(Math.sign(degree), 0);
+          scrolling.stepTo({kx: -Math.sign(degree)});
         }
       },
     });

@@ -1,6 +1,6 @@
 /**
  * Scrolling - плавная прокрутка с произвольным шагом
- * Version 1.0
+ * Version 1.1
  * Arigato Software, 2024
  */
 
@@ -34,7 +34,9 @@ container:
 
 scrolling.container - прокручиваемый контейнер, на нем необходимо разместить все элементы
 scrolling.setScrolling(element) - сделать элемент перетаскиваемым (применить для каждого элемента на контейнере)
-scrolling.step(kx, ky) - Прокрутка на заданное число шагов (kx > 0 - влево; kx < 0 - вправо; ky > 0 - вверх; ky < 0 - вниз)
+scrolling.getScrollStep(): result - получить текущую позицию прокрутки (в шагах): result.sx, result.sy
+scrolling.stepTo(option) - прокрутка на заданное число шагов (option.kx < 0 - влево; option.kx > 0 - вправо; option.ky < 0 - вверх; option.ky > 0 - вниз)
+scrolling.scrollTo(option) - прокрутка на заданную позицию (option.sx, option.sy), option.anim - анимация (true, false)
 */
 
 import { createWidget, widget, event, prop } from '@zos/ui'
@@ -60,10 +62,11 @@ export class Scrolling {
         };
         this.down = false; // Флаг нажатия по экрану
         this.scrolling = false; // Флаг процесса прокрутки
-        this.kx = 0; // Направление смещения контейнера по x
-        this.ky = 0; // Направление смещения контейнера по y
-        this.x = 0;
-        this.y = 0;
+        this.k = [0, 0]; // Направление смещения контейнера
+        this.xy = [0, 0];
+        this.dir = [SCROLL_MODE_HORIZONTAL, SCROLL_MODE_VERTICAL];
+        this.step = [this.params.step_x, this.params.step_y]
+        this.finish = [0, 0];
         this.timer = null; // Таймер торможения
         this.createContainer();
         this.blockGesture();
@@ -83,10 +86,8 @@ export class Scrolling {
             scroll_enable: false,
             ...(this.params.container ? this.params.container : {})
         };
-        this.pos_x = params.pos_x;
-        this.pos_y = params.pos_y;
-        this.max_x = params.w - width;
-        this.max_y = params.h - height;
+        this.pos = [params.pos_x, params.pos_y];
+        this.max = [params.w - width, params.h - height];
 
         // Создание контейнера
         this.container = createWidget(widget.VIEW_CONTAINER, params);
@@ -117,13 +118,41 @@ export class Scrolling {
         });
     }
 
+    // Получить текущую позицию прокрутки (в шагах)
+    getScrollStep() {
+        return {
+            sx: -Math.floor(this.pos[0] / this.step[0]),
+            sy: -Math.floor(this.pos[1] / this.step[1]),
+        };
+    }
+
     // Прокрутка на заданное число шагов
-    step(kx, ky) {
-        this.base_kx = kx;
-        this.base_ky = ky;
-        this.pos_x += kx;
-        this.pos_y += ky;
-        this.finishing(Math.round(Math.abs(kx)), Math.round(Math.abs(ky)));
+    stepTo(option) {
+        this.base = [-(option.kx ?? 0), -(option.ky ?? 0)];
+        if (this.base[0] == 0 && this.base[1] == 0) return;
+        this.dir.forEach((dir, i) => {
+            if (this.params.mode & dir) {
+                this.pos[i] += Math.sign(this.base[i]);
+            }
+        });
+        this.scrolling = false;
+        this.finishing([Math.round(Math.abs(this.base[0])), Math.round(Math.abs(this.base[1]))]);
+    }
+
+    // Прокрутка на заданную позицию
+    scrollTo(option) {
+        const current = this.getScrollStep();
+        const to = [option.sx ?? current.sx, option.sy ?? current.sy];
+        if (option.anim ?? false){
+            this.stepTo({ kx: to[0] - current.sx, ky: to[1] - current.sy });
+        } else {
+            this.dir.forEach((dir, i) => {
+                if (this.params.mode & dir) {
+                    this.pos[i] = -to[i] * this.step[i];
+                }
+            });
+            this.posContainer();
+        }
     }
 
     // Обработка событий перемещения по экрану
@@ -135,13 +164,13 @@ export class Scrolling {
 
     // Обработчик нажатия на экран
     onClickDown(info) {
-        this.x = info.x;
-        this.y = info.y;
+        this.xy = [info.x, info.y];
         this.down = true;
     }
 
     // Обработчик отпускания экрана
     onClickUp(info) {
+        if (!this.scrolling) return;
         this.down = false;
         this.braking();
     }
@@ -150,60 +179,48 @@ export class Scrolling {
     onMove(info) {
         if (!this.down) return;
         this.scrolling = true;
-        this.kx = info.x - this.x;
-        this.ky = info.y - this.y;
-        this.x = info.x;
-        this.y = info.y;
+        this.k = [info.x - this.xy[0], info.y - this.xy[1]];
+        this.xy = [info.x, info.y];
         this.move();
+    }
+
+    // Переместить контейнер в позицию this.pos
+    posContainer(){
+        this.container.setProperty(prop.MORE, { pos_x: this.pos[0], pos_y: this.pos[1] });
     }
 
     // Перемещение контейнера
     move() {
-        if (this.params.mode & SCROLL_MODE_HORIZONTAL) {
-            this.move_x();
-        }
-        if (this.params.mode & SCROLL_MODE_VERTICAL) {
-            this.move_y();
-        }
-        this.container.setProperty(prop.MORE, { pos_x: this.pos_x, pos_y: this.pos_y });
-        this.params.scroll_frame_func?.({ x: this.pos_x, y: this.pos_y });
+        this.dir.forEach((dir, i) => {
+            if (this.params.mode & dir) {
+                this.move_xy(i);
+            }
+        });
+        this.posContainer();
+        this.params.scroll_frame_func?.({ x: this.pos[0], y: this.pos[1] });
     }
 
-    // Горизонтальное перемещение
-    move_x() {
-        this.pos_x += this.kx;
-        if (this.pos_x > this.params.step_x) {
-            this.pos_x = this.params.step_x;
-            this.kx = 0;
+    // Перемещение
+    move_xy(i) {
+        this.pos[i] += this.k[i];
+        if (this.pos[i] > this.step[i]) {
+            this.pos[i] = this.step[i];
+            this.k[i] = 0;
         }
-        if (this.pos_x < -this.max_x - this.params.step_x) {
-            this.pos_x = -this.max_x - this.params.step_x;
-            this.kx = 0;
-        }
-    }
-
-    // Вертикальное перемещение
-    move_y() {
-        this.pos_y += this.ky;
-        if (this.pos_y > this.params.step_y) {
-            this.pos_y = this.params.step_y;
-            this.ky = 0;
-        }
-        if (this.pos_y < -this.max_y - this.params.step_y) {
-            this.pos_y = -this.max_y - this.params.step_y;
-            this.ky = 0;
+        if (this.pos[i] < -this.max[i] - this.step[i]) {
+            this.pos[i] = -this.max[i] - this.step[i];
+            this.k[i] = 0;
         }
     }
 
     // Эффект торможения
     braking() {
         if (this.timer) clearInterval(this.timer);
-        this.base_kx = this.kx;
-        this.base_ky = this.ky;
+        this.base = [...this.k];
         this.timer = setInterval(() => {
-            this.kx = Math.trunc(this.kx * this.params.k_braking);
-            this.ky = Math.trunc(this.ky * this.params.k_braking);
-            if (Math.abs(this.kx) <= this.params.finishing_speed && Math.abs(this.ky) <= this.params.finishing_speed) {
+            this.k[0] = Math.trunc(this.k[0] * this.params.k_braking);
+            this.k[1] = Math.trunc(this.k[1] * this.params.k_braking);
+            if (Math.abs(this.k[0]) <= this.params.finishing_speed && Math.abs(this.k[1]) <= this.params.finishing_speed) {
                 this.finishing();
             } else {
                 this.move();
@@ -212,39 +229,35 @@ export class Scrolling {
     }
 
     // Доводка прокрутки под заданный шаг
-    finishing(sx = 1, sy = 1) {
+    finishing(sxy = [1, 1]) {
         if (this.timer) clearInterval(this.timer);
-        if (this.params.mode & SCROLL_MODE_HORIZONTAL) {
-            this.finish_x = Math.floor(this.pos_x / this.params.step_x + (this.base_kx > 0 ? sx : -sx + 1)) * this.params.step_x;
-            if (this.pos_x <= -this.max_x || this.finish_x < -this.max_x) this.finish_x = -this.max_x;
-            if (this.pos_x >= 0 || this.finish_x > 0) this.finish_x = 0;
-        } else {
-            this.finish_x = this.pos_x;
-        }
-        if (this.params.mode & SCROLL_MODE_VERTICAL) {
-            this.finish_y = Math.floor(this.pos_y / this.params.step_y + (this.base_ky > 0 ? sy : -sy + 1)) * this.params.step_y;
-            if (this.pos_y <= -this.max_y || this.finish_y < -this.max_y) this.finish_y = -this.max_y;
-            if (this.pos_y >= 0 || this.finish_y > 0) this.finish_y = 0;
-        } else {
-            this.finish_y = this.pos_y;
-        }
-        this.kx = this.params.finishing_speed * Math.sign(this.finish_x - this.pos_x);
-        this.ky = this.params.finishing_speed * Math.sign(this.finish_y - this.pos_y);
+
+        this.dir.forEach((dir, i) => {
+            if (this.params.mode & dir) {
+                this.finish[i] = Math.floor(this.pos[i] / this.step[i] + (this.base[i] > 0 ? sxy[i] : -sxy[i] + 1)) * this.step[i];
+                if (this.pos[i] <= -this.max[i] || this.finish[i] < -this.max[i]) this.finish[i] = -this.max[i];
+                if (this.pos[i] >= 0 || this.finish[i] > 0) this.finish[i] = 0;
+                this.k[i] = this.params.finishing_speed * Math.sign(this.finish[i] - this.pos[i]);
+            } else {
+                this.k[i] = 0;
+            }
+        });
+
         this.timer = setInterval(() => {
-            if (Math.abs(this.pos_x - this.finish_x) < this.params.finishing_speed) {
-                this.kx = 0;
-                this.pos_x = this.finish_x;
-            }
-            if (Math.abs(this.pos_y - this.finish_y) < this.params.finishing_speed) {
-                this.ky = 0;
-                this.pos_y = this.finish_y;
-            }
+            this.dir.forEach((dir, i) => {
+                if (this.params.mode & dir) {
+                    if (Math.abs(this.pos[i] - this.finish[i]) < this.params.finishing_speed) {
+                        this.k[i] = 0;
+                        this.pos[i] = this.finish[i];
+                    }
+                }
+            });
             this.move();
-            if (this.kx == 0 && this.ky == 0) {
+            if (this.k[0] == 0 && this.k[1] == 0) {
                 clearInterval(this.timer);
                 this.timer = null;
                 this.scrolling = false;
-                this.params.scroll_complete_func?.({ x: this.pos_x, y: this.pos_y });
+                this.params.scroll_complete_func?.({ x: this.pos[0], y: this.pos[1] });
             }
         }, 0);
     }
